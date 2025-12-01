@@ -1,4 +1,5 @@
-from .external_program import (
+# objective/__init__.py
+from objective.external_program import (
     select_program,
     detect_program_signature_smart,
     run_external_program,
@@ -7,7 +8,7 @@ from .external_program import (
 
 __all__ = [
     "select_program",
-    "detect_program_signature_smart", 
+    "detect_program_signature_smart",
     "run_external_program",
     "get_program_info"
 ]

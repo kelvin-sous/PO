@@ -1,7 +1,7 @@
 import numpy as np
-from .base_optimizer import BaseOptimizer
-from .particle_swarm import ParticleSwarm
-from .pattern_search import PatternSearch
+from optimizer.base_optimizer import BaseOptimizer
+from optimizer.particle_swarm import ParticleSwarm
+from optimizer.pattern_search import PatternSearch
 
 def log(msg):
     print(f"[HYBRID] {msg}")

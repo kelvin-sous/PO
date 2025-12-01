@@ -1,5 +1,5 @@
 import numpy as np
-from .base_optimizer import BaseOptimizer
+from optimizer.base_optimizer import BaseOptimizer
 
 def log(msg):
     print(f"[PSO] {msg}")
