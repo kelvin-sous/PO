@@ -29,6 +29,7 @@ Sistema de otimização que executa três algoritmos simultaneamente em processo
 ```
 
 ## Estrutura do Projeto
+Navegue até o commit: "e494ea3c"
 ```
 PO/
 ├── main_parallel_fixed.py        # Script principal
