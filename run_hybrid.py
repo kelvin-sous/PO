@@ -42,14 +42,14 @@ def main():
     print("="*70)
     print()
     
-    # Executa Hybrid
     hyb = HybridPSOPatternSearch(
         objective_function=run_external_program,
         x0=x0,
         n_particles=config.get('n_particles', 20),
         pso_max_iter=config.get('pso_max_iter', 20),
         ps_max_iter=config.get('ps_max_iter', 20),
-        bounds=bounds
+        bounds=bounds,
+        n_threads=config.get('n_threads')
     )
     
     hyb_x, hyb_f, hyb_hist = hyb.optimize()

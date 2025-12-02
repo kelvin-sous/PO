@@ -1,15 +1,20 @@
+# optimizer/particle_swarm.py
 import numpy as np
 from optimizer.base_optimizer import BaseOptimizer
+from datetime import datetime
+import time
+import os
 
 def log(msg):
-    print(f"[PSO] {msg}")
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    print(f"[{timestamp}] [PSO] {msg}")
 
 class ParticleSwarm(BaseOptimizer):
     """Particle Swarm Optimization"""
     
     def __init__(self, objective_function, x0, 
                  n_particles=30, w=0.7, c1=1.5, c2=1.5,
-                 bounds=None, **kwargs):
+                 bounds=None, n_threads=None, **kwargs):
         super().__init__(objective_function, x0, **kwargs)
         
         self.n_particles = n_particles
@@ -18,11 +23,25 @@ class ParticleSwarm(BaseOptimizer):
         self.c2 = c2
         self.bounds = bounds or [(-10, 10)] * len(x0)
         self.history = []
+        
+        # Configura threads
+        if n_threads is not None:
+            self.n_threads = n_threads
+            # Define threads para numpy (se disponível)
+            try:
+                os.environ['OMP_NUM_THREADS'] = str(n_threads)
+                os.environ['MKL_NUM_THREADS'] = str(n_threads)
+                os.environ['OPENBLAS_NUM_THREADS'] = str(n_threads)
+                log(f"Threads configuradas: {n_threads}")
+            except:
+                pass
     
     def optimize(self):
-        n_dims = len(self.x0)
+        start_time = time.time()
+        log(f"=== INICIANDO PSO ===")
         
-        log(f"Iniciando - {self.n_particles} particulas, {n_dims} dimensoes")
+        n_dims = len(self.x0)
+        log(f"Particulas: {self.n_particles}, Dimensoes: {n_dims}")
         
         # Inicializa posicoes
         positions = np.zeros((self.n_particles, n_dims))
@@ -47,17 +66,21 @@ class ParticleSwarm(BaseOptimizer):
         g_best = positions[g_best_idx].copy()
         g_best_fitness = fitness[g_best_idx]
         
-        log(f"Fitness inicial: {g_best_fitness:.6f}")
+        elapsed = time.time() - start_time
+        log(f"Fitness inicial: {g_best_fitness:.6f} (tempo: {elapsed:.2f}s)")
         
         self.history.append({
             'iteration': 0,
             'g_best': g_best.copy(),
-            'g_best_fitness': g_best_fitness
+            'g_best_fitness': g_best_fitness,
+            'elapsed_time': elapsed
         })
         
         n_eval = self.n_particles
         
         for iteration in range(1, self.max_iter + 1):
+            iter_start = time.time()
+            
             for i in range(self.n_particles):
                 r1 = np.random.random(n_dims)
                 r2 = np.random.random(n_dims)
@@ -87,23 +110,30 @@ class ParticleSwarm(BaseOptimizer):
                     p_best_fitness[i] = fitness[i]
                     
                     if fitness[i] > g_best_fitness:
-                        improvement = fitness[i] - g_best_fitness
                         g_best = positions[i].copy()
                         g_best_fitness = fitness[i]
-                        log(f"Iter {iteration}: Nova melhor solucao - f = {g_best_fitness:.6f}")
+                        elapsed = time.time() - start_time
+                        log(f"Iter {iteration}: Nova melhor -> f = {g_best_fitness:.6f} (tempo: {elapsed:.2f}s)")
             
+            elapsed = time.time() - start_time
             if iteration % 10 == 0:
-                log(f"Iter {iteration}: g_best = {g_best_fitness:.6f}")
+                log(f"Iter {iteration}: g_best = {g_best_fitness:.6f} (tempo: {elapsed:.2f}s)")
             
             self.history.append({
                 'iteration': iteration,
                 'g_best': g_best.copy(),
-                'g_best_fitness': g_best_fitness
+                'g_best_fitness': g_best_fitness,
+                'elapsed_time': elapsed
             })
             
             if np.std(fitness) < self.tol:
                 log(f"Convergencia: std < tol")
                 break
         
-        log(f"Concluido: f* = {g_best_fitness:.6f}, {n_eval} avaliacoes")
+        total_time = time.time() - start_time
+        log(f"=== CONCLUIDO ===")
+        log(f"Melhor fitness: {g_best_fitness:.6f}")
+        log(f"Avaliacoes: {n_eval}")
+        log(f"TEMPO TOTAL: {total_time:.2f} segundos ({total_time/60:.2f} minutos)")
+        
         return g_best, g_best_fitness, self.history

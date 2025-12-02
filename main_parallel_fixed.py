@@ -1,7 +1,7 @@
 # main_parallel_fixed.py
 """
-Script principal - executa os 3 algoritmos em PARALELO (VERSÃO CORRIGIDA)
-Cada algoritmo roda em sua própria janela de comando
+Script principal - executa os 3 algoritmos em PARALELO (VERSÃO OTIMIZADA)
+Com cronômetro, data/hora e divisão inteligente de threads
 """
 
 import subprocess
@@ -9,6 +9,7 @@ import sys
 import os
 import json
 import time
+import multiprocessing
 
 # Garante que o diretório atual está no path
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -18,7 +19,40 @@ if current_dir not in sys.path:
 from objective import select_program, detect_program_signature_smart
 from utils import log
 
-def create_config_file(name, program_path, signature, num_params, x0, bounds, **kwargs):
+def get_optimal_threads():
+    """Detecta número de threads e divide APENAS entre os algoritmos que paralelizam"""
+    total_threads = multiprocessing.cpu_count()
+    
+    # Pattern Search NÃO paraleliza
+    # Divide threads APENAS entre PSO e Hybrid (50% cada)
+    threads_pso = total_threads // 2
+    threads_hybrid = total_threads // 2
+    
+    # Se for ímpar, dá a thread extra para o PSO (geralmente mais pesado)
+    if total_threads % 2 != 0:
+        threads_pso += 1
+    
+    print("\n" + "="*70)
+    print("CONFIGURACAO DE THREADS")
+    print("="*70)
+    print(f"Threads disponiveis no sistema: {total_threads}")
+    print(f"")
+    print(f"Divisao por algoritmo:")
+    print(f"  - Pattern Search:  0 threads (algoritmo sequencial)")
+    print(f"  - Particle Swarm:  {threads_pso} threads")
+    print(f"  - Hybrid (PSO+PS): {threads_hybrid} threads")
+    print(f"")
+    print(f"Total alocado: {threads_pso + threads_hybrid} de {total_threads} threads")
+    print(f"Aproveitamento: {((threads_pso + threads_hybrid) / total_threads * 100):.1f}%")
+    print("="*70)
+    
+    return {
+        'pattern_search': 0,
+        'particle_swarm': threads_pso,
+        'hybrid': threads_hybrid
+    }
+
+def create_config_file(name, program_path, signature, num_params, x0, bounds, n_threads, **kwargs):
     """Cria arquivo de configuracao para um algoritmo"""
     config = {
         'program_path': program_path,
@@ -27,6 +61,7 @@ def create_config_file(name, program_path, signature, num_params, x0, bounds, **
         'x0': x0,
         'bounds': bounds,
         'result_file': f'result_{name}.json',
+        'n_threads': n_threads,
         **kwargs
     }
     
@@ -49,10 +84,11 @@ def wait_for_results(result_files, timeout=300):
             if rf not in completed and os.path.exists(rf):
                 completed.add(rf)
                 algo_name = rf.replace('result_', '').replace('.json', '').upper()
-                print(f"  ✓ {algo_name} concluido!")
+                elapsed = time.time() - start_time
+                print(f"  ✓ {algo_name} concluido! (tempo decorrido: {elapsed:.2f}s)")
         
         if len(completed) == len(result_files):
-            time.sleep(1)  # Aguarda escrita completa
+            time.sleep(1)
             return True
         
         time.sleep(2)
@@ -89,7 +125,7 @@ def cleanup_temp_files():
 
 def main():
     print("="*70)
-    print("  SISTEMA DE OTIMIZACAO MULTI-ALGORITMO (PARALELO)")
+    print("  SISTEMA DE OTIMIZACAO MULTI-ALGORITMO (PARALELO OTIMIZADO)")
     print("="*70)
     print()
     
@@ -109,14 +145,21 @@ def main():
     log(f"Configuracao: {num_params} parametros, tipos: {signature}")
     log(f"Ponto inicial: {x0}")
     
-    # Cria arquivos de configuracao para cada algoritmo
+    # Detecta e divide threads
+    thread_config = get_optimal_threads()
+    
+    # Cria arquivos de configuracao com threads
     print("\nPreparando configuracoes...")
-    config_ps = create_config_file('ps', program_path, signature, num_params, x0, bounds, 
-                                   max_iter=50)
-    config_pso = create_config_file('pso', program_path, signature, num_params, x0, bounds, 
+    config_ps = create_config_file('ps', program_path, signature, num_params, x0, bounds,
+                                   n_threads=thread_config['pattern_search'], max_iter=50)
+    
+    config_pso = create_config_file('pso', program_path, signature, num_params, x0, bounds,
+                                    n_threads=thread_config['particle_swarm'], 
                                     n_particles=20, max_iter=30)
+    
     config_hybrid = create_config_file('hybrid', program_path, signature, num_params, x0, bounds,
-                                       n_particles=20, pso_max_iter=20, ps_max_iter=20)
+                                       n_threads=thread_config['hybrid'], n_particles=20, 
+                                       pso_max_iter=20, ps_max_iter=20)
     
     # Determina caminhos ABSOLUTOS
     python_exe = sys.executable
@@ -152,20 +195,19 @@ def main():
     print("="*70)
     print()
     
-    # Prepara comandos com lista (evita problemas com espaços)
-    # 1. Pattern Search
+    execution_start = time.time()
+    
+    # Prepara comandos
     cmd_ps = ['cmd', '/c', 'start', 'Pattern Search', 'cmd', '/k', python_exe, script_ps, config_ps]
     print(f"[1/3] Iniciando Pattern Search...")
     subprocess.Popen(cmd_ps, cwd=current_dir)
     time.sleep(0.5)
     
-    # 2. Particle Swarm
     cmd_pso = ['cmd', '/c', 'start', 'Particle Swarm', 'cmd', '/k', python_exe, script_pso, config_pso]
     print(f"[2/3] Iniciando Particle Swarm...")
     subprocess.Popen(cmd_pso, cwd=current_dir)
     time.sleep(0.5)
     
-    # 3. Hybrid
     cmd_hybrid = ['cmd', '/c', 'start', 'Hybrid Optimizer', 'cmd', '/k', python_exe, script_hybrid, config_hybrid]
     print(f"[3/3] Iniciando Hybrid...")
     subprocess.Popen(cmd_hybrid, cwd=current_dir)
@@ -173,7 +215,7 @@ def main():
     print()
     print("="*70)
     print("Tres janelas de comando foram abertas!")
-    print("Cada janela mostra o progresso de um algoritmo diferente.")
+    print("Cada janela mostra o progresso com data/hora e cronometro.")
     print("="*70)
     print()
     
@@ -181,9 +223,12 @@ def main():
     result_files = ['result_ps.json', 'result_pso.json', 'result_hybrid.json']
     
     if wait_for_results(result_files, timeout=600):
+        total_execution_time = time.time() - execution_start
+        
         print("\n" + "="*70)
         print("TODOS OS ALGORITMOS CONCLUIRAM!")
         print("="*70)
+        print(f"Tempo total de execucao paralela: {total_execution_time:.2f}s ({total_execution_time/60:.2f} min)")
         print()
         
         # Carrega e exibe resultados
@@ -199,6 +244,8 @@ def main():
                 print(f"  Fitness: {res['f']:.6f}")
                 print(f"  Solucao: {res['x']}")
                 print(f"  Iteracoes: {res['iterations']}")
+                if 'execution_time' in res:
+                    print(f"  Tempo: {res['execution_time']:.2f}s")
             
             # Melhor resultado
             if len(results) > 0:

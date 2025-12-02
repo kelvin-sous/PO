@@ -48,7 +48,8 @@ def main():
         x0=x0,
         n_particles=config.get('n_particles', 20),
         bounds=bounds,
-        max_iter=config.get('max_iter', 30)
+        max_iter=config.get('max_iter', 30),
+        n_threads=config.get('n_threads')
     )
     
     pso_x, pso_f, pso_hist = pso.optimize()

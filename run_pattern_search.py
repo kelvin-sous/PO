@@ -42,12 +42,12 @@ def main():
     
     # Executa Pattern Search
     ps = PatternSearch(
-        objective_function=run_external_program,
-        x0=x0,
-        delta=1.0,
-        delta_min=1e-6,
-        max_iter=config.get('max_iter', 50)
-    )
+    objective_function=run_external_program,
+    x0=x0,
+    delta=1.0,
+    delta_min=1e-6,
+    max_iter=config.get('max_iter', 50)
+)
     
     ps_x, ps_f, ps_hist = ps.optimize()
     

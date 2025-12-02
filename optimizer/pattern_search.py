@@ -1,8 +1,12 @@
+# optimizer/pattern_search.py
 import numpy as np
 from optimizer.base_optimizer import BaseOptimizer
+from datetime import datetime
+import time
 
 def log(msg):
-    print(f"[PS] {msg}")
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    print(f"[{timestamp}] [PS] {msg}")
 
 class PatternSearch(BaseOptimizer):
     """Pattern Search (Hooke-Jeeves)"""
@@ -16,18 +20,22 @@ class PatternSearch(BaseOptimizer):
         self.history = []
 
     def optimize(self):
+        start_time = time.time()
+        log(f"=== INICIANDO PATTERN SEARCH ===")
+        
         x = np.array(self.x0, dtype=float)
         n_dims = len(x)
         
         f_best = self.objective_function(x)
         self.history.append({'iteration': 0, 'x': x.copy(), 'f': f_best, 'delta': self.delta})
         
-        log(f"Iniciando - f(x0) = {f_best:.6f}")
+        log(f"Fitness inicial: f(x0) = {f_best:.6f}")
 
         delta = self.delta
         n_eval = 1
 
         for iteration in range(1, self.max_iter + 1):
+            iter_start = time.time()
             improved = False
             
             for i in range(n_dims):
@@ -42,8 +50,8 @@ class PatternSearch(BaseOptimizer):
                     n_eval += 1
 
                     if f_new > f_best:
-                        improvement = f_new - f_best
-                        log(f"Iter {iteration}: Melhoria na dim {i} - f: {f_best:.6f} -> {f_new:.6f}")
+                        elapsed = time.time() - start_time
+                        log(f"Iter {iteration}: Melhoria dim {i} -> f = {f_new:.6f} (tempo: {elapsed:.2f}s)")
                         
                         x = x_new
                         f_best = f_new
@@ -54,26 +62,34 @@ class PatternSearch(BaseOptimizer):
                             'x': x.copy(),
                             'f': f_best,
                             'delta': delta,
-                            'improved': True
+                            'improved': True,
+                            'elapsed_time': elapsed
                         })
                         break
 
             if not improved:
                 delta *= self.reduction_factor
                 if iteration % 5 == 0:
-                    log(f"Iter {iteration}: Sem melhoria, delta = {delta:.6f}")
+                    elapsed = time.time() - start_time
+                    log(f"Iter {iteration}: Sem melhoria, delta = {delta:.6f} (tempo: {elapsed:.2f}s)")
                 
                 self.history.append({
                     'iteration': iteration,
                     'x': x.copy(),
                     'f': f_best,
                     'delta': delta,
-                    'improved': False
+                    'improved': False,
+                    'elapsed_time': time.time() - start_time
                 })
 
             if delta < self.delta_min:
                 log(f"Convergencia: delta ({delta:.2e}) < delta_min")
                 break
 
-        log(f"Concluido: f* = {f_best:.6f}, {n_eval} avaliacoes")
+        total_time = time.time() - start_time
+        log(f"=== CONCLUIDO ===")
+        log(f"Melhor fitness: {f_best:.6f}")
+        log(f"Avaliacoes: {n_eval}")
+        log(f"TEMPO TOTAL: {total_time:.2f} segundos ({total_time/60:.2f} minutos)")
+        
         return x, f_best, self.history
